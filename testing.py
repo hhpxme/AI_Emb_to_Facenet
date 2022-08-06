@@ -6,6 +6,9 @@ import pickle
 import cv2
 import face_embbeding
 
+
+vid = cv2.VideoCapture(0)
+
 img_path = 'beauty_20220724113920.jpg'
 img = cv2.imread(img_path)
 detector = MTCNN()
@@ -23,33 +26,40 @@ pkl_filename = 'models/emb/out_encoder.pkl'
 with open(pkl_filename, 'rb') as file:
     output_enc = pickle.load(file)
 
-pixels = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
-# Detect faces
-results = detector.detect_faces(pixels)
+while (True):
+    ret, frame = vid.read()
+    image = frame
 
-if len(results) > 0:
-    x1, y1, width, height = results[0]['box']
-    x1, y1 = abs(x1), abs(y1)
-    x2, y2 = x1 + width, y1 + height
-    face = pixels[y1:y2, x1:x2]
-    image = Image.fromarray(face)
-    image = image.resize(img_size)
+    pixels = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
-    face_emb = face_embbeding.get_embedding(facenet_model, np.array(image))
+    # Detect faces
+    results = detector.detect_faces(pixels)
 
-    face_emb = np.expand_dims(face_emb, axis=0)
+    if len(results) > 0:
+        x1, y1, width, height = results[0]['box']
+        x1, y1 = abs(x1), abs(y1)
+        x2, y2 = x1 + width, y1 + height
+        face = pixels[y1:y2, x1:x2]
+        image = Image.fromarray(face)
+        image = image.resize(img_size)
 
-    y_hat = pickle_model.predict(face_emb)
-    y_hat_prob = pickle_model.predict_proba(face_emb)
+        face_emb = face_embbeding.get_embedding(facenet_model, np.array(image))
 
-    predict_names = output_enc.inverse_transform(y_hat)
-    predict_prob = y_hat_prob[0, y_hat[0]] * 100
+        face_emb = np.expand_dims(face_emb, axis=0)
 
-    if predict_names != None:
-        cv2.putText(img, predict_names[0], (50, 50), cv2.FONT_HERSHEY_COMPLEX, 1, (0, 255, 0), 2)
-        print('Expected: %.3f' % predict_prob)
+        y_hat = pickle_model.predict(face_emb)
+        y_hat_prob = pickle_model.predict_proba(face_emb)
 
-cv2.imshow('img', img)
+        predict_names = output_enc.inverse_transform(y_hat)
+        predict_prob = y_hat_prob[0, y_hat[0]] * 100
+
+        if predict_names != None:
+            cv2.putText(img, predict_names[0], (50, 50), cv2.FONT_HERSHEY_COMPLEX, 1, (0, 255, 0), 2)
+            print('Predict: ' + predict_names[0])
+            print('Expected: %.3f' % predict_prob)
+
+
+cv2.imshow('image', image)
 cv2.waitKey(0)
 cv2.destroyAllWindows()
